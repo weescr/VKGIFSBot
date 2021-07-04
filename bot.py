@@ -124,6 +124,7 @@ async def show_gifs(inline_query: types.InlineQuery):
 			return
 
 	ALL_GIFS.setdefault(str(user_id),[])
+	ALL_GIFS[str(user_id)] = []
 	vk_api_result = await APIS.get(str(user_id)).docs.get()
 	too_much = False
 	for file in vk_api_result.response.items:
