@@ -162,4 +162,4 @@ async def show_gifs(inline_query: types.InlineQuery):
 			)
 
 if __name__ == "__main__":
-	executor.start_polling(dp)
+	executor.start_polling(dp, skip_updates = True)
