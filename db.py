@@ -1,6 +1,7 @@
+import os
 import sqlite3
 
-connection = sqlite3.connect("configs.db")
+connection = sqlite3.connect(os.path.join("db", "configs.db"))
 cursor = connection.cursor()
 
 def add(tg_id: int, vk_token: str):
