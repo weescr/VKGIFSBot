@@ -13,6 +13,7 @@ from urllib.parse import parse_qs
 
 GREATING = "Привет, этот бот поможет тебе отправлять GIF-изображения из ВКонтакте в Телеграме, войди по кнопке ниже и отправь мне то, что получишь в адресной строке."
 AUTH_URL = "https://oauth.vk.com/authorize?client_id=7894722&display=page&redirect_uri=https://oauth.vk.com/blank.html&scope=docs,offline&response_type=token&v=5.52"
+PARANOID_URL = "https://github.com/yepIwt/VKGIFSBot#vk-gifs-bot"
 
 TOKEN = os.getenv("TELEGRAM_API_TOKEN")
 
@@ -81,6 +82,7 @@ async def send_welcome(message: types.Message):
 		keyboard_markup = types.InlineKeyboardMarkup(row_width=1)
 		keyboard_markup.add(
 			types.InlineKeyboardButton('Авторизоваться через ВКонтакте', url = AUTH_URL),
+			types.InlineKeyboardButton('Я боюсь вводить токен', url = PARANOID_URL)
 		)
 		await message.reply(GREATING,  reply_markup=keyboard_markup)
 	else:
