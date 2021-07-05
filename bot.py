@@ -21,6 +21,7 @@ bot = Bot(token = TOKEN)
 dp = Dispatcher(bot)
 
 APIS = {}
+OFFSETS = {}
 ALL_GIFS = {}
 
 def get_vk_api(token):
@@ -48,37 +49,39 @@ def it_is_gif(title: str):
 			return True
 		return False
 
-def check_if_deeplink(text: str):
-	args = text.split(" ")
-	try:
-		deeplink = args[1]
-	except:
-		return False
-	else:
-		return deeplink
-
-def return_gifs_with_offset(user_id):
-	global ALL_GIFS, sector
+def return_gifs_with_offset(user_id, offset = None):
+	global ALL_GIFS, OFFSETS
 
 	user_gifs = ALL_GIFS[str(user_id)]
-	user_sector = db.get_sector_by_telegram_id(user_id)
-	offset2 = user_sector * 49
-	offset1 = offset2 - 49
 
-	return user_gifs[offset1:offset2]
+	if offset == "":
+		OFFSETS[str(user_id)] += 1
+		return user_gifs[:50]
+	else:
+		user_offset = OFFSETS[f'{user_id}']
+
+		if user_offset == 0:
+			return [] #  гифки пользователя кончились
+		else:
+			max_user_offsets = len(user_gifs) // 50 # питон всегда округляет в меньшую сторону
+
+			gif_offset2 = user_offset * 50
+			gif_offset1 = gif_offset2 - 50
+
+			result = user_gifs[gif_offset1:gif_offset2]
+
+			if user_gifs[gif_offset2:]:
+				OFFSETS[f"{user_id}"] += 1
+			else:
+				OFFSETS[f'{user_id}'] = 0
+
+			return result
 
 @dp.message_handler(commands=['start'])
 async def send_welcome(message: types.Message):
 	user_id = message.from_user.id
 
-	deeplk = check_if_deeplink(message.text)
-	if deeplk == "next":
-		db.update_sector_by_telegram_id(user_id, "+")
-		await message.answer("Следующие 50 гифок")
-	elif deeplk == "prev":
-		db.update_sector_by_telegram_id(user_id, "-")
-		await message.answer("Предыдущие 50 гифок")
-	elif not db.get_vk_token_by_telegram_id(user_id):	
+	if not db.get_vk_token_by_telegram_id(user_id):
 		keyboard_markup = types.InlineKeyboardMarkup(row_width=1)
 		keyboard_markup.add(
 			types.InlineKeyboardButton('Авторизоваться через ВКонтакте', url = AUTH_URL),
@@ -86,11 +89,12 @@ async def send_welcome(message: types.Message):
 		)
 		await message.reply(GREATING,  reply_markup=keyboard_markup)
 	else:
-		await message.reply("Ну старт и старт, что бубнить то...")
+		await message.reply("Вы уже авторизованы!")
 
 @dp.message_handler()
 async def await_vk_token(message: types.Message):
-	global APIS
+	global APIS, OFFSETS
+	user_id = message.from_user.id
 	parsed_url = parse_qs(message.text)
 	vk_token = parsed_url.get("https://oauth.vk.com/blank.html#access_token")
 	if not vk_token:
@@ -103,63 +107,55 @@ async def await_vk_token(message: types.Message):
 			await message.answer("Неправильный токен")
 		else:
 			await message.answer("Да, это сработает")
-			db.add(message.from_user.id, vk_token[0])
-			APIS.setdefault(f"{message.from_user.id}", api)
+			db.add(f"{user_id}", vk_token[0])
+			APIS.setdefault(f"{user_id}", api)
+			OFFSETS.setdefault(f"{user_id}", 1)
 
 @dp.inline_handler()
 async def show_gifs(inline_query: types.InlineQuery):
 	global APIS, ALL_GIFS
 
 	user_id = inline_query.from_user.id
+
 	if not APIS.get(str(user_id)):
 		has_token = db.get_vk_token_by_telegram_id(user_id)
 		if has_token:
 			APIS.setdefault(str(user_id), get_vk_api(has_token))
+			OFFSETS.setdefault(str(user_id), 1)
 		else:
 			await bot.answer_inline_query(
-				inline_query.id, 
-				switch_pm_text = 'Авторизуйтесь чтобы использовать бота', 
+				inline_query.id,
+				switch_pm_text = 'Авторизуйтесь чтобы использовать бота',
 				switch_pm_parameter = "need_authorize",
-				results=[], 
+				results=[],
 				cache_time=1
 			)
 			return
 
 	ALL_GIFS.setdefault(str(user_id),[])
-	ALL_GIFS[str(user_id)] = []
+	ALL_GIFS[str(user_id)] = [] # добавить кнопку "обновить gif"
 	vk_api_result = await APIS.get(str(user_id)).docs.get()
-	too_much = False
-	for file in vk_api_result.response.items:
-		if it_is_gif(file.title):
-			item = create_item(
-				result_id = hashlib.md5(str(file.id).encode()).hexdigest(),
-				gif_url = file.url,
-			)
-			ALL_GIFS[str(user_id)].append(item)
 
-	if len(return_gifs_with_offset(user_id)) >= 49:
-		await bot.answer_inline_query(
-			inline_query.id, 
-			switch_pm_text = 'Следующие 50 GIF',
-			switch_pm_parameter = "next",
-			results=return_gifs_with_offset(user_id), 
+	if inline_query.offset != "+": # первый раз выбор
+		OFFSETS[str(user_id)] = 1
+
+	if not ALL_GIFS[str(user_id)]:
+		for file in vk_api_result.response.items:
+			if it_is_gif(file.title):
+				item = create_item(
+					result_id = hashlib.md5(str(file.id).encode()).hexdigest(),
+					gif_url = file.url,
+				)
+				ALL_GIFS[str(user_id)].append(item)
+
+
+	await bot.answer_inline_query(
+			inline_query.id,
+			is_personal = True,
+			next_offset = "+",
+			results=return_gifs_with_offset(user_id, inline_query.offset), 
 			cache_time=1
 		)
-	else:
-		if db.get_sector_by_telegram_id(user_id) > 1:
-			await bot.answer_inline_query(
-				inline_query.id, 
-				switch_pm_text = 'Предыдущие 50 GIF', 
-				switch_pm_parameter = "prev",
-				results = return_gifs_with_offset(user_id), 
-				cache_time=1
-			)
-		else:
-			await bot.answer_inline_query(
-				inline_query.id, 
-				results = return_gifs_with_offset(user_id), 
-				cache_time=1
-			)
 
 if __name__ == "__main__":
 	executor.start_polling(dp, skip_updates = True)
