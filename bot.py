@@ -19,8 +19,7 @@ GREATING = "Привет, этот бот поможет тебе отправл
 AUTH_URL = "https://oauth.vk.com/authorize?client_id=7894722&display=page&redirect_uri=https://oauth.vk.com/blank.html&scope=docs,offline&response_type=token&v=5.52"
 PARANOID_URL = "https://github.com/yepIwt/VKGIFSBot#vk-gifs-bot"
 
-#TOKEN = os.getenv("TELEGRAM_API_TOKEN")
-TOKEN = "1707022774:AAHA329lEctBUWnQ640YgHfrIiu8jQJjaNI"
+TOKEN = os.getenv("TELEGRAM_API_TOKEN")
 
 class VKGIFSBot(object):
 
