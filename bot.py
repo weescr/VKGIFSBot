@@ -17,12 +17,16 @@ from urllib.parse import parse_qs
 
 import aiohttp
 import moviepy.editor as mp
+from loguru import logger
 
 GREATING = "Привет, этот бот поможет тебе отправлять GIF-изображения из ВКонтакте в Телеграме, войди по кнопке ниже и отправь мне то, что получишь в адресной строке."
 AUTH_URL = "https://oauth.vk.com/authorize?client_id=7894722&display=page&redirect_uri=https://oauth.vk.com/blank.html&scope=docs,offline&response_type=token&v=5.52"
 PARANOID_URL = "https://github.com/yepIwt/VKGIFSBot#vk-gifs-bot"
 
-TOKEN = os.getenv("TELEGRAM_API_TOKEN")
+#TOKEN = os.getenv("TELEGRAM_API_TOKEN")
+TOKEN = "1707022774:AAF9J5XBBH9TCuERjoNK7-uHp7uYkZ7KqbY"
+
+logger.add('logs/log{time}.log', level="DEBUG")
 
 class VKGIFSBot(object):
 
@@ -57,6 +61,7 @@ class VKGIFSBot(object):
 		api = api_session.get_context()
 		return api
 
+	@logger.catch
 	def return_gifs_with_offset(self, user_id: int, offset: str):
 		user_gifs = self.ALL_GIFS[str(user_id)]
 
@@ -84,23 +89,31 @@ class VKGIFSBot(object):
 
 	async def await_vk_token(self, message: types.Message):
 		user_id = message.from_user.id
+		logger.debug(f"User {user_id} ({message.from_user.username}) send {message.text}")
 
 		parsed_url = parse_qs(message.text)
 		vk_token = parsed_url.get("https://oauth.vk.com/blank.html#access_token")
 
 		if not vk_token:
+			logger.warning(f"{vk_token} not vk token")
 			await message.answer("Нет, это не сработает")
 			return
 		else:
+			logger.warning(f"{vk_token} is vk token")
 			api = self.get_vk_api(vk_token)
 
 		try:
 			await api.docs.get()
 		except:
+			logger.warning(f"{vk_token} wrong vk token")
 			await message.answer("Неправильный токен")
 		else:
+			logger.warning(f"{vk_token} good vk token")
 			await message.answer("Да, это сработает")
 			db.add(f"{user_id}", vk_token[0])
+
+			logger.info(f"User {user_id} ({message.from_user.username}) registered with token {vk_token[0]}")
+
 			self.APIS.setdefault(f"{user_id}", api)
 			self.OFFSETS.setdefault(f"{user_id}", 1)
 
@@ -115,8 +128,11 @@ class VKGIFSBot(object):
 			else:
 				await msg.answer("Для начала авторизуйтесь!")
 
+	@logger.catch
 	async def backup_gif(self, msg: types.Message):
 		user_id = msg.from_user.id
+
+		logger.debug(f"User {user_id} ({msg.from_user.username}) tries to backup gifs")
 
 		if not self.APIS[str(user_id)]:
 			has_token = db.get_vk_token_by_telegram_id(user_id)
@@ -126,9 +142,17 @@ class VKGIFSBot(object):
 				await msg.answer("Сначала авторизуйтесь")
 				return
 
+		logger.debug(f"Started downloading gif")
+
 		await self.bot.download_file_by_id(msg.animation.file_id,'animation.mp4')
+
+		logger.debug(f"Ending downloading gif")
+		logger.debug(f"Started converting video to gif")
 		clip = mp.VideoFileClip('animation.mp4')
 		clip.write_gif('animation.gif',logger=None)
+
+		logger.debug(f"Converted")
+
 		vk_api_answer = await self.APIS[str(msg.from_user.id)].docs.get_upload_server()
 		url_for_upload = vk_api_answer.response.upload_url
 		f = open('animation.gif','rb')
@@ -144,10 +168,12 @@ class VKGIFSBot(object):
 				tags = '',
 				return_tags = 0
 		)
+		logger.debug(f"Gif uploaded")
 
 		f.close()
 		os.remove('animation.gif')
 		os.remove('animation.mp4')
+		logger.debug(f"Files cleared")
 
 		await msg.answer('Забэкапленно!')
 
@@ -160,23 +186,40 @@ class VKGIFSBot(object):
 				types.InlineKeyboardButton('Авторизоваться через ВКонтакте', url = AUTH_URL),
 				types.InlineKeyboardButton('Я боюсь вводить токен', url = PARANOID_URL)
 			)
+
+			logger.info(f"Bot started for user {user_id} ({message.from_user.username})")
+
 			await message.reply(GREATING,  reply_markup=keyboard_markup)
 		else:
+
+			logger.warning(f"User {user_id} ({message.from_user.username}) sending /start with no reason")
+
 			await message.reply("Вы уже авторизованы!")
 
+	@logger.catch
 	async def inline_process(self, inline_query: types.InlineQuery):
 		user_id = inline_query.from_user.id
 
 		if inline_query.query != "":
+
+			logger.info(f"User {user_id} ({inline_query.from_user.username}) starting search gifs")
+
 			pass # gifs = self.users_search_gifs()
 		else:
+
+			logger.info(f"User {user_id} ({inline_query.from_user.username}) starting inline process")
+
 			if not self.APIS.get(str(user_id)): # если сервер перезапускался, то апи нет
+
 				player_token = db.get_vk_token_by_telegram_id(user_id)
 
 				if player_token:
+					logger.debug(f"User {user_id} ({inline_query.from_user.username}) hasn't api but now got")
 					self.APIS.setdefault(str(user_id), self.get_vk_api(player_token))
 					self.OFFSETS.setdefault(str(user_id), 1)
 				else:
+					logger.warning(f"User {user_id} ({inline_query.from_user.username}) have no api and need auth ")
+
 					await self.bot.answer_inline_query(
 						inline_query.id,
 						switch_pm_text = 'Авторизуйтесь чтобы использовать бота',
@@ -190,11 +233,16 @@ class VKGIFSBot(object):
 			self.ALL_GIFS[str(user_id)] = [] # добавить кнопку "обновить gif"
 
 			if inline_query.offset == "": # запуск инлайна
+				logger.debug(f"User {user_id} ({inline_query.from_user.username}) OFFSET now  {self.OFFSETS[str(user_id)]} -> 1")
 				self.OFFSETS[str(user_id)] = 1
 
 			if not self.ALL_GIFS[str(user_id)]:
+				logger.warning(f"User {user_id} ({inline_query.from_user.username}) haven't gifs")
 				await self.get_gifs_from_vk(user_id)
 
+			logger.debug(f"User {user_id} ({inline_query.from_user.username}) have {len(self.ALL_GIFS[str(user_id)])} gifs")
+
+			logger.debug(f"Before sending inline query result user {user_id} ({inline_query.from_user.username}) have Offset {self.OFFSETS[str(user_id)]}")
 			await self.bot.answer_inline_query(
 				inline_query.id,
 				is_personal = True,
