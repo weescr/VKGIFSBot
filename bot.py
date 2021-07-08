@@ -140,10 +140,11 @@ class VKGIFSBot(object):
 		self.APIS.setdefault(f"{user_id}", None)
 
 		if not self.APIS[str(user_id)]:
-			if db.get_vk_token_by_telegram_id(user_id):
+			if not db.get_vk_token_by_telegram_id(user_id):
 				await msg.answer("Для бэкапа гифки в вк просто отправьте ее боту")
-			else:
-				await msg.answer("Для начала авторизуйтесь!")
+				return
+
+		await msg.answer("Для бэкапа гифки в вк просто отправьте ее боту")
 
 	@logger.catch
 	async def backup_gif(self, msg: types.Message):
