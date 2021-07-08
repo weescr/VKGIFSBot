@@ -1,3 +1,6 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+
 """
 	VKGIFSBot Inline Telegram bot that receives GIF images from VK
 	yepIwt, 2021
