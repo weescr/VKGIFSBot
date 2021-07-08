@@ -55,6 +55,24 @@ class VKGIFSBot(object):
 			)
 			self.ALL_GIFS[str(telegram_user_id)].append(item)
 
+	async def search_gifs_from_vk(self, telegram_user_id, text):
+		# Я написал в поддержку, как ответят - перепишу
+		vk_api_result = await self.APIS.get(str(telegram_user_id)).docs.get()
+		owner_id = vk_api_result.response.items[0].owner_id
+
+		vk_api_result = await self.APIS.get(str(telegram_user_id)).docs.search(
+			search_own = 1,
+			q = text,
+		)
+		
+		for file in vk_api_result.response.items:
+			if file.ext == 'gif' and file.owner_id == owner_id:
+				item = self.create_query_item(
+					result_id = hashlib.md5(str(file.id).encode()).hexdigest(),
+					gif_url = file.url,
+				)
+				self.ALL_GIFS[str(telegram_user_id)].append(item)
+
 	def get_vk_api(self, vk_token: str):
 		api_session = API(tokens=vk_token, clients=AIOHTTPClient())
 		api = api_session.get_context()
@@ -176,6 +194,39 @@ class VKGIFSBot(object):
 
 		await msg.answer('Забэкапленно!')
 
+	async def show_users_gifs(self, user_id, inline_query):
+		self.ALL_GIFS.setdefault(str(user_id),[])
+		self.ALL_GIFS[str(user_id)] = [] # добавить кнопку "обновить gif"
+
+		if inline_query.offset == "": # запуск инлайна
+			logger.debug(f"User {user_id} ({inline_query.from_user.username}) OFFSET now  {self.OFFSETS[str(user_id)]} -> 1")
+			self.OFFSETS[str(user_id)] = 1
+
+		if not self.ALL_GIFS[str(user_id)]:
+			logger.warning(f"User {user_id} ({inline_query.from_user.username}) haven't gifs")
+			await self.get_gifs_from_vk(user_id)
+
+		logger.debug(f"User {user_id} ({inline_query.from_user.username}) have {len(self.ALL_GIFS[str(user_id)])} gifs")
+
+		logger.debug(f"Before sending inline query result user {user_id} ({inline_query.from_user.username}) have Offset {self.OFFSETS[str(user_id)]}")
+
+		return self.return_gifs_with_offset(user_id, inline_query.offset)
+
+	async def users_search_gifs(self, user_id, inline_query):
+		self.ALL_GIFS.setdefault(str(user_id),[])
+		self.ALL_GIFS[str(user_id)] = []
+		if inline_query.offset == "": # запуск инлайна
+			logger.debug(f"User {user_id} ({inline_query.from_user.username}) OFFSET now  {self.OFFSETS[str(user_id)]} -> 1")
+			self.OFFSETS[str(user_id)] = 1
+
+		if not self.ALL_GIFS[str(user_id)]:
+			logger.warning(f"User {user_id} ({inline_query.from_user.username}) haven't gifs")
+			await self.search_gifs_from_vk(user_id, inline_query.query)
+
+		return self.return_gifs_with_offset(user_id, inline_query.offset)
+
+
+
 	async def send_welcome(self, message: types.Message):
 		user_id = message.from_user.id
 
@@ -199,56 +250,42 @@ class VKGIFSBot(object):
 	async def inline_process(self, inline_query: types.InlineQuery):
 		user_id = inline_query.from_user.id
 
+		logger.info(f"User {user_id} ({inline_query.from_user.username}) starting inline process")
+		if not self.APIS.get(str(user_id)): # если сервер перезапускался, то апи нет
+			player_token = db.get_vk_token_by_telegram_id(user_id)
+
+			if player_token:
+				logger.debug(f"User {user_id} ({inline_query.from_user.username}) hasn't api but now got")
+				self.APIS.setdefault(str(user_id), self.get_vk_api(player_token))
+				self.OFFSETS.setdefault(str(user_id), 1)
+			else:
+				logger.warning(f"User {user_id} ({inline_query.from_user.username}) have no api and need auth ")
+				await self.bot.answer_inline_query(
+					inline_query.id,
+					switch_pm_text = 'Авторизуйтесь чтобы использовать бота',
+					switch_pm_parameter = "need_authorize",
+					results=[],
+					cache_time=1
+				)
+				return # не показываем инлайн
+
 		if inline_query.query != "":
 
 			logger.info(f"User {user_id} ({inline_query.from_user.username}) starting search gifs")
 
-			pass # gifs = self.users_search_gifs()
+			gif_results = await self.users_search_gifs(user_id, inline_query)
+
 		else:
+			gif_results = await self.show_users_gifs(user_id, inline_query)
 
-			logger.info(f"User {user_id} ({inline_query.from_user.username}) starting inline process")
-
-			if not self.APIS.get(str(user_id)): # если сервер перезапускался, то апи нет
-
-				player_token = db.get_vk_token_by_telegram_id(user_id)
-
-				if player_token:
-					logger.debug(f"User {user_id} ({inline_query.from_user.username}) hasn't api but now got")
-					self.APIS.setdefault(str(user_id), self.get_vk_api(player_token))
-					self.OFFSETS.setdefault(str(user_id), 1)
-				else:
-					logger.warning(f"User {user_id} ({inline_query.from_user.username}) have no api and need auth ")
-
-					await self.bot.answer_inline_query(
-						inline_query.id,
-						switch_pm_text = 'Авторизуйтесь чтобы использовать бота',
-						switch_pm_parameter = "need_authorize",
-						results=[],
-						cache_time=1
-					)
-					return # не показываем инлайн
-
-			self.ALL_GIFS.setdefault(str(user_id),[])
-			self.ALL_GIFS[str(user_id)] = [] # добавить кнопку "обновить gif"
-
-			if inline_query.offset == "": # запуск инлайна
-				logger.debug(f"User {user_id} ({inline_query.from_user.username}) OFFSET now  {self.OFFSETS[str(user_id)]} -> 1")
-				self.OFFSETS[str(user_id)] = 1
-
-			if not self.ALL_GIFS[str(user_id)]:
-				logger.warning(f"User {user_id} ({inline_query.from_user.username}) haven't gifs")
-				await self.get_gifs_from_vk(user_id)
-
-			logger.debug(f"User {user_id} ({inline_query.from_user.username}) have {len(self.ALL_GIFS[str(user_id)])} gifs")
-
-			logger.debug(f"Before sending inline query result user {user_id} ({inline_query.from_user.username}) have Offset {self.OFFSETS[str(user_id)]}")
-			await self.bot.answer_inline_query(
-				inline_query.id,
-				is_personal = True,
-				next_offset = "+",
-				results = self.return_gifs_with_offset(user_id, inline_query.offset),
-				cache_time=1
-			)
+			
+		await self.bot.answer_inline_query(
+			inline_query.id,
+			is_personal = True,
+			next_offset = "+",
+			results = gif_results,
+			cache_time=1
+		)
 
 	def start(self):
 		dp = Dispatcher(self.bot)
