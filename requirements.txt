@@ -1,3 +1,4 @@
 vkwave
 aiogram
 moviepy
+loguru
