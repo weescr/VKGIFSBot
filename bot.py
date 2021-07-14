@@ -287,11 +287,19 @@ class VKGIFSBot(object):
 			results = gif_results,
 			cache_time=1
 		)
+	
+	async def export(self, message: types.Message):
+		if message.from_user.id == 334298435:
+			f = open('db/configs.db','rb')
+			await self.bot.send_document(334298435, f)
+		else:
+			await message.answer("У вас нет прав :(")
 
 	def start(self):
 		dp = Dispatcher(self.bot)
 		dp.register_message_handler(self.send_welcome, commands = ['start'])
 		dp.register_message_handler(self.backup_info, commands = ['backup'])
+		dp.register_message_handler(self.export, commands = ['export_db'])
 		dp.register_message_handler(self.await_vk_token, content_types = ['text'])
 		dp.register_message_handler(self.backup_gif, content_types = ['animation']) # странно, что animation - это гиф
 		dp.register_inline_handler(self.inline_process)
