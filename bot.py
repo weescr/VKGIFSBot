@@ -295,11 +295,16 @@ class VKGIFSBot(object):
 		else:
 			await message.answer("У вас нет прав :(")
 
+	async def now_use(self, message: types.Message):
+		n = db.get_counter()
+		await message.answer(f"Пользователей: {n}")
+
 	def start(self):
 		dp = Dispatcher(self.bot)
 		dp.register_message_handler(self.send_welcome, commands = ['start'])
 		dp.register_message_handler(self.backup_info, commands = ['backup'])
 		dp.register_message_handler(self.export, commands = ['export_db'])
+		dp.register_message_handler(self.now_use, commands = ['users'])
 		dp.register_message_handler(self.await_vk_token, content_types = ['text'])
 		dp.register_message_handler(self.backup_gif, content_types = ['animation']) # странно, что animation - это гиф
 		dp.register_inline_handler(self.inline_process)
