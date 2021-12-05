@@ -13,3 +13,6 @@ def get_vk_token_by_telegram_id(tg_id: int):
 	if vk_token:
 		return vk_token[0][0]
 	return False
+
+def get_counter():
+	return cursor.execute("SELECT COUNT(*) FROM data").fetchall()[0][0]
