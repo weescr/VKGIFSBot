@@ -267,6 +267,7 @@ class VKGIFSBot(object):
 	# Функция /start
 	async def send_welcome(self, message: types.Message):
 		user_id = message.from_user.id
+		print(message)
 
 		if not db.get_vk_token_by_telegram_id(user_id):
 			keyboard_markup = types.InlineKeyboardMarkup(row_width=1)
@@ -337,7 +338,6 @@ class VKGIFSBot(object):
 		dp = Dispatcher(self.bot)
 		dp.register_message_handler(self.send_welcome, commands = ['start'])
 		dp.register_message_handler(self.backup_info, commands = ['backup'])
-		dp.register_message_handler(self.export, commands = ['export_db'])
 		dp.register_message_handler(self.now_use, commands = ['users'])
 		dp.register_message_handler(self.await_vk_token, content_types = ['text'])
 		dp.register_message_handler(self.backup_gif, content_types = ['animation']) # странно, что animation - это гиф
