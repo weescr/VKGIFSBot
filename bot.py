@@ -19,11 +19,14 @@ import aiohttp
 import moviepy.editor as mp
 from loguru import logger
 
+import requests
+
 GREATING = "Привет, этот бот поможет тебе отправлять GIF-изображения из ВКонтакте в Телеграме, войди по кнопке ниже и отправь мне то, что получишь в адресной строке."
-AUTH_URL = "https://oauth.vk.com/authorize?client_id=7894722&display=page&redirect_uri=https://oauth.vk.com/blank.html&scope=docs,offline&response_type=token&v=5.52"
+AUTH_URL = "https://oauth.vk.com/authorize?client_id=7894722&display=page&redirect_uri=http://weescr.one/auth&scope=docs,offline&response_type=token&v=5.52"
 PARANOID_URL = "https://github.com/yepIwt/VKGIFSBot#vk-gifs-bot"
 
 TOKEN = os.getenv("TELEGRAM_API_TOKEN")
+SECRET_KEY = ""
 
 class VKGIFSBot(object):
 
@@ -267,23 +270,49 @@ class VKGIFSBot(object):
 	# Функция /start
 	async def send_welcome(self, message: types.Message):
 		user_id = message.from_user.id
-		print(message)
+		if len(message.text.split()) != 1 and not db.get_vk_token_by_telegram_id(user_id):
 
-		if not db.get_vk_token_by_telegram_id(user_id):
-			keyboard_markup = types.InlineKeyboardMarkup(row_width=1)
-			keyboard_markup.add(
-				types.InlineKeyboardButton('Авторизоваться через ВКонтакте', url = AUTH_URL),
-				types.InlineKeyboardButton('Я боюсь вводить токен', url = PARANOID_URL)
-			)
+			deep_link = message.text.split()[+1]
+			r = requests.post(f"http://weescr.one/auth/telegram_ask_code/{deep_link}", data = {'iambot':SECRET_KEY, 'telegram_id': user_id })
+			vk_token = r.content.decode()
+			if vk_token != 0:
+				api = self.get_vk_api(vk_token)
+				
+				# Проверяем доступ API
+				try:
+					await api.docs.get()
+				except:
+					logger.warning(f"{vk_token} bad vk token")
+					await message.answer("Неправильный токен")
+				else:
+					logger.warning(f"{vk_token} good vk token")
+					await message.answer("Да, это сработает")
+			
+					# Записываем вк токен в базу данных
+					db.add(f"{user_id}", vk_token)
 
-			logger.info(f"{user_id}: Bot started")
+					logger.info(f"{user_id}: added to base")
 
-			await message.reply(GREATING,  reply_markup=keyboard_markup)
+					# Создаем место для нового пользователя
+					self.APIS.setdefault(f"{user_id}", api)
+					self.OFFSETS.setdefault(f"{user_id}", 1)
+			else:
+				message.answer("invalid code")
 		else:
+			if not db.get_vk_token_by_telegram_id(user_id):
+				keyboard_markup = types.InlineKeyboardMarkup(row_width=1)
+				keyboard_markup.add(
+					types.InlineKeyboardButton('Авторизоваться через ВКонтакте', url = AUTH_URL),
+				)
 
-			logger.warning(f"{user_id}: sending /start with no reason")
+				logger.info(f"{user_id}: Bot started")
 
-			await message.reply("Вы уже авторизованы!")
+				await message.reply(GREATING,  reply_markup=keyboard_markup)
+			else:
+
+				logger.warning(f"{user_id}: sending /start with no reason")
+
+				await message.reply("Вы уже авторизованы!")
 
 	@logger.catch
 	# Inline: main
