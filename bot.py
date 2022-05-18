@@ -24,6 +24,7 @@ import requests
 GREATING = "Привет, этот бот поможет тебе отправлять GIF-изображения из ВКонтакте в Телеграме, войди по кнопке ниже и отправь мне то, что получишь в адресной строке."
 AUTH_URL = "https://oauth.vk.com/authorize?client_id=7894722&display=page&redirect_uri=http://weescr.one/auth&scope=docs,offline&response_type=token&v=5.52"
 PARANOID_URL = "https://github.com/yepIwt/VKGIFSBot#vk-gifs-bot"
+MY_TELEGRAM_USER_ID = 334298435
 
 TOKEN = os.getenv("TELEGRAM_API_TOKEN")
 SECRET_KEY = ""
@@ -36,6 +37,10 @@ class VKGIFSBot(object):
 		self.ALL_GIFS = {} # Хранение Inline ответов для пользователя
 
 		self.bot = Bot(token = tg_token)
+	
+	async def thank_you(self, username):
+		n = db.get_counter()
+		await self.bot.send_mesage(MY_TELEGRAM_USER_ID, "@{username} - ахуенный человек, ебашь ради него дальше, броу\nТеперь пользователей: {n}")
 
 	# Функция для создания Inline ответов для телеграмма
 	def create_query_item(self, result_id: str, gif_url: str) -> types.InlineQueryResultGif:
@@ -269,7 +274,10 @@ class VKGIFSBot(object):
 
 	# Функция /start
 	async def send_welcome(self, message: types.Message):
+
 		user_id = message.from_user.id
+		user_name = message.from_user.username
+
 		if len(message.text.split()) != 1 and not db.get_vk_token_by_telegram_id(user_id):
 
 			deep_link = message.text.split()[+1]
@@ -285,8 +293,9 @@ class VKGIFSBot(object):
 					logger.warning(f"{vk_token} bad vk token")
 					await message.answer("Неправильный токен")
 				else:
-					logger.warning(f"{vk_token} good vk token")
 					await message.answer("Да, это сработает")
+
+					self.thank_you(user_name)
 			
 					# Записываем вк токен в базу данных
 					db.add(f"{user_id}", vk_token)
