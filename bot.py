@@ -7,17 +7,20 @@ import backendtools
 import vktools
 from config import settings
 
+GIF_MAX_SIZE_MB = 20
+
 
 class GifSerializer:
     def __init__(self):
         pass
 
-    def get_telegram_answer(self, gifs_from_vk: list):
+    def get_telegram_answer(self, gifs_from_vk: list) -> list:
         result = []
         for item in gifs_from_vk:
-            result.append(
-                self.create_query_item(result_id=uuid.uuid4().hex, gif_url=item.url)
-            )
+            if (item.size / 1024 / 1024) < GIF_MAX_SIZE_MB:
+                result.append(
+                    self.create_query_item(result_id=uuid.uuid4().hex, gif_url=item.url)
+                )
         return result
 
     def create_query_item(
@@ -96,10 +99,13 @@ class VKGIFSBot:
                 self.APIs.setdefault(str(user_id), current_api)
 
         if inline_query.query != "":
-            pass
+            vk_answer = await current_api.search_vk_gifs(
+                q=inline_query.query, offset=inline_query.offset
+            )
         else:
             vk_answer = await current_api.get_vk_gifs(offset=inline_query.offset)
-            offset = int(inline_query.offset) if inline_query.offset else 0
+
+        offset = int(inline_query.offset) if inline_query.offset else 0
 
         await self.bot.answer_inline_query(
             inline_query.id,

@@ -15,5 +15,7 @@ class VkTools:
         return result.items
 
     async def search_vk_gifs(self, q: str, offset=None):
-        result = await self.api_object.docs.search(q=q, search_own=1, offset=offset)
+        result = await self.api_object.docs.search(
+            q=q, count=10, search_own=1, type=3, offset=offset
+        )
         return result.items
