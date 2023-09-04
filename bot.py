@@ -1,5 +1,4 @@
 import hashlib
-from time import time
 
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -16,21 +15,6 @@ class GifSerializer:
     def __init__(self):
         self.Cache = {}
 
-    def add_gif_to_cache(self, gif_file_id: str):
-        self.Cache.setdefault(gif_file_id, time())
-
-    def get_cached_gif(self, gif_file_id: str):
-        cache_gif_file_id = self.Cache.get(gif_file_id)
-
-        if not cache_gif_file_id:
-            return None
-
-        if (time() - cache_gif_file_id) > 295:
-            del self.Cache[cache_gif_file_id]
-            return None
-
-        return cache_gif_file_id
-
     def get_telegram_answer(self, gifs_from_vk: list) -> list:
 
         result = []
@@ -40,18 +24,9 @@ class GifSerializer:
             if (item.size / 1024 / 1024) < GIF_MAX_SIZE_MB:
 
                 hashed_gif_file_id = hashlib.sha256(f"{item.id}".encode()).hexdigest()
-
-                cached_gif_file_id = self.get_cached_gif(hashed_gif_file_id)
-
-                if cached_gif_file_id:
-                    query_item = self.create_cached_query_item(
-                        cached_id=cached_gif_file_id
-                    )
-                else:
-                    query_item = self.create_query_item(
-                        result_id=hashed_gif_file_id, gif_url=item.url
-                    )
-                    self.add_gif_to_cache(gif_file_id=hashed_gif_file_id)
+                query_item = self.create_query_item(
+                    result_id=hashed_gif_file_id, gif_url=item.url
+                )
 
                 result.append(query_item)
 
@@ -66,13 +41,6 @@ class GifSerializer:
             thumb_url=gif_url,
             gif_width=100,
             gif_height=100,
-        )
-        return new_item
-
-    def create_cached_query_item(self, cached_id: str) -> types.InlineQueryResultGif:
-        new_item = types.InlineQueryResultCachedGif(
-            id=cached_id,
-            gif_file_id=cached_id,
         )
         return new_item
 
