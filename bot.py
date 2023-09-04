@@ -9,6 +9,7 @@ import vktools
 from config import settings
 
 GIF_MAX_SIZE_MB = 20
+GREATING = "Привет, этот бот поможет тебе отправлять GIF-изображения из ВКонтакте в Телеграме. И это вторая версия, пока что Beta. Там две кнопочки, тыкни."
 
 
 class GifSerializer:
@@ -97,12 +98,12 @@ class VKGIFSBot:
             await message.answer("Вы уже залогинены")
         else:
             await message.reply(
-                "Почему ты ей не сказал?",
+                GREATING,
                 reply_markup=InlineKeyboardMarkup().add(
                     InlineKeyboardButton(
                         "Вход", url=self.backend.get_auth_url(telegram_id=user_id)
                     ),
-                    InlineKeyboardButton("Я вошел", callback_data="check"),
+                    InlineKeyboardButton("Я вошел в вк", callback_data="check"),
                 ),
             )
 
@@ -111,7 +112,9 @@ class VKGIFSBot:
 
         vk_token = await self.backend.command_login(telegram_id=user_id)
         if not vk_token:
-            await callback_query.answer("Не залогинен")
+            await callback_query.answer(
+                "Я не верю, что ты перешел по ссылке. Либо ошибка на серве хз)"
+            )
         else:
             await self.bot.delete_message(
                 chat_id=callback_query.message.chat.id,
