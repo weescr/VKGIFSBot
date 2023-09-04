@@ -1,4 +1,0 @@
-vkwave
-aiogram
-moviepy
-loguru

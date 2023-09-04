@@ -1,11 +1,24 @@
-FROM python:3.9.6
+FROM python:3.11-slim
 
-RUN mkdir -p /usr/src/app
-WORKDIR /usr/src/app
+ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE 1
 
-ENV TELEGRAM_API_TOKEN=""
+WORKDIR /app
 
-COPY . /usr/src/app
-RUN pip install --no-cache-dir -r requirements.txt
+RUN apt-get update && \
+    apt-get install -y curl build-essential libpq-dev && \
+    apt-get purge -y --auto-remove -o APT:AutoRemove:RecommendsImportant=false && \
+    rm -rf /var/lib/apt/lists/*
 
-CMD ["python","bot.py"]
+RUN curl -sSL https://install.python-poetry.org | python3 -
+
+ENV PATH="/root/.local/bin:$PATH"
+
+RUN poetry config virtualenvs.create false
+
+COPY poetry.lock pyproject.toml ./
+RUN poetry install --no-interaction --no-dev --no-root --no-ansi
+
+COPY . .
+
+CMD [ "python", "bot.py" ]
