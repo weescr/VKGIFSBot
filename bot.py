@@ -1,4 +1,5 @@
-import uuid
+import hashlib
+from time import time
 
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -12,15 +13,47 @@ GIF_MAX_SIZE_MB = 20
 
 class GifSerializer:
     def __init__(self):
-        pass
+        self.Cache = {}
+
+    def add_gif_to_cache(self, gif_file_id: str):
+        self.Cache.setdefault(gif_file_id, time())
+
+    def get_cached_gif(self, gif_file_id: str):
+        cache_gif_file_id = self.Cache.get(gif_file_id)
+
+        if not cache_gif_file_id:
+            return None
+
+        if (time() - cache_gif_file_id) > 295:
+            del self.Cache[cache_gif_file_id]
+            return None
+
+        return cache_gif_file_id
 
     def get_telegram_answer(self, gifs_from_vk: list) -> list:
+
         result = []
+
         for item in gifs_from_vk:
+
             if (item.size / 1024 / 1024) < GIF_MAX_SIZE_MB:
-                result.append(
-                    self.create_query_item(result_id=uuid.uuid4().hex, gif_url=item.url)
-                )
+
+                hashed_gif_file_id = hashlib.sha256(f"{item.id}".encode()).hexdigest()
+
+                cached_gif_file_id = self.get_cached_gif(hashed_gif_file_id)
+
+                if cached_gif_file_id:
+                    query_item = self.create_cached_query_item(
+                        cached_id=cached_gif_file_id
+                    )
+                else:
+                    query_item = self.create_query_item(
+                        result_id=hashed_gif_file_id, gif_url=item.url
+                    )
+                    self.add_gif_to_cache(gif_file_id=hashed_gif_file_id)
+
+                result.append(query_item)
+
         return result
 
     def create_query_item(
@@ -35,6 +68,13 @@ class GifSerializer:
         )
         return new_item
 
+    def create_cached_query_item(self, cached_id: str) -> types.InlineQueryResultGif:
+        new_item = types.InlineQueryResultCachedGif(
+            id=cached_id,
+            gif_file_id=cached_id,
+        )
+        return new_item
+
 
 class VKGIFSBot:
 
@@ -46,6 +86,7 @@ class VKGIFSBot:
             client_token=settings.BACKEND_CLIENT_TOKEN
         )
         self.APIs = {}
+        self.seriazlier = GifSerializer()
 
     async def start_button(self, message: types.Message):
 
@@ -111,8 +152,8 @@ class VKGIFSBot:
             inline_query.id,
             is_personal=True,
             next_offset=offset + len(vk_answer),
-            results=GifSerializer().get_telegram_answer(gifs_from_vk=vk_answer),
-            cache_time=1,
+            results=self.seriazlier.get_telegram_answer(gifs_from_vk=vk_answer),
+            cache_time=300,
         )
 
     def start(self):
