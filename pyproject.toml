@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "vkgifsbot"
+version = "2"
+description = "Inline Телеграм бот для отправки GIF-изображений из ВКонтакте"
+authors = ["yepIwt <ReetRay@protonmail.com>"]
+license = "GPLv3"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+aiogram = "2.25.1"
+vkbottle = "^4.3.12"
+loguru = "^0.7.0"
+pre-commit = "^3.4.0"
+flake8 = "^6.1.0"
+python-dotenv = "^1.0.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
