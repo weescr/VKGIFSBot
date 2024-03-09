@@ -1,0 +1,30 @@
+<html>
+    <head>
+        <title>TheWeeScripts: VKGIFSBot</title>
+    </head>
+
+    <body>
+        <h1>Hello friend</h1>
+        <script>
+            const inputURL = window.location.href;
+            const inputString = window.location.href;
+
+            const urlMatch = inputString.match(/http:\/\/[^/]+\/[^/]+/);
+            const clientTokenMatch = inputString.match(/\/([^/]+)\/auth/);
+            const telegramIdMatch = inputString.match(/auth\/[^#]+/);
+            const vkTokenMatch = inputString.match(/#access_token=[^&]+/);
+
+            const url = urlMatch ? urlMatch[0] : "";
+            const clientToken = clientTokenMatch ? clientTokenMatch[1] : "";
+            const telegramId = telegramIdMatch ? telegramIdMatch[0].replace("auth/", "") : "";
+            const vkToken = vkTokenMatch ? vkTokenMatch[0].replace("#access_token=", "") : "";
+
+            const newURL = `${url}/api/vkdata/{user_id}/catch"/${clientToken}/auth/${telegramId}/successful/${vkToken}`
+
+            console.log(newURL);
+            // Выполняем редирект
+            window.location.href = newURL;
+
+        </script>
+    </body>
+</html>
