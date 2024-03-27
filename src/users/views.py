@@ -15,3 +15,15 @@ class TelegramUserRequestView(BaseRequestModel):
 
 class UserView(BaseModel):
     user_id: UUID
+
+
+class VKToken(BaseModel):
+    vktoken: str
+
+
+class VKAuthLink(BaseModel):
+    vk_auth_link: AnyUrl
+
+
+class UsersCounter(BaseModel):
+    users_count: int

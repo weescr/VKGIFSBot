@@ -1,31 +1,35 @@
+from typing import Union
+
 from fastapi import APIRouter, Body, Depends, status
 
 from src.users.models import User
 
 
 from src.db.connection import Transaction
-from src.exceptions import (
-    UserAlreadyRegistered,
-)
-from .views import TelegramUserRequestView, UserView
+from .views import TelegramUserRequestView, UserView, VKToken, VKAuthLink, UsersCounter
+from ..config import settings
 
-auth_router = APIRouter(tags=["User"])
+users_router = APIRouter(tags=["User"])
 
 
-@auth_router.post("/users/create")
-async def new_user(body: TelegramUserRequestView = Body(...)) -> UserView:
+@users_router.get("/users/{hashed_telegram_id}")
+async def get_user(hashed_telegram_id: str) -> Union[VKToken, VKAuthLink]:
 
     async with Transaction():
 
-        user = await User.get_by_telegram_id(body.telegram_id)
+        user = await User.get_by_hashed_telegram_id(hashed_telegram_id=hashed_telegram_id)
 
-        if user:
-            raise UserAlreadyRegistered
+    if user:
+        return VKToken(vktoken=user.vktoken)
+    else:
+        return VKAuthLink(vk_auth_link=settings.VK_AUTH_LINK(hashed_telegram_id=hashed_telegram_id))
 
-        user_id = await User.create(
-            telegram_id=body.telegram_id,
-            username=body.username,
-            picture_url=body.picture_url
-        )
 
-    return UserView(user_id=user_id)
+@users_router.get("/users/")
+async def get_user() -> UsersCounter:
+
+    async with Transaction():
+
+        counter = await User.get_counter()
+
+    return UsersCounter(users_count=counter)

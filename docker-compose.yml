@@ -1,0 +1,23 @@
+version: '3.7'
+services:
+  db:
+    image: bitnami/postgresql:15.1.0
+    ports:
+      - 5431:5432
+    volumes:
+      - postgresql_master_data:/bitnami/postgresql
+    env_file:
+      - .env
+    environment:
+      - POSTGRESQL_DATABASE=${POSTGRES_DATABASE}
+      - POSTGRESQL_USERNAME=${POSTGRES_USER}
+      - POSTGRESQL_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRESQL_REPLICATION_MODE=master
+    networks:
+      - vkgifsbot-dev
+volumes:
+  postgresql_master_data:
+  static:
+networks:
+  vkgifsbot-dev:
+    external: true

@@ -4,6 +4,7 @@ from typing import Any, Mapping
 
 
 class Settings(BaseSettings):
+    DEBUG: bool = True
 
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
@@ -21,11 +22,15 @@ class Settings(BaseSettings):
     CORS_ORIGINS_REGEX: str | None = None
     CORS_HEADERS: list[str]
 
+    SWAGGER_URL: str | None = "/swagger" if DEBUG else None
+    OPENAPI: str | None = "/openapi.json" if DEBUG else None
+    PATH_PREFIX: str = "/api"
+
     VK_APP_ID: int
+    SALT: str = "salt"
 
     class Config:
         env_file = ".env"
-
 
     @validator("DATABASE_URL", pre=True)
     def assemble_postgres_db_url(cls, v: str | None, values: Mapping[str, Any]) -> str:
@@ -39,7 +44,7 @@ class Settings(BaseSettings):
                 password=values["POSTGRES_PASSWORD"],
                 host=values["POSTGRES_HOST"],
                 port=int(values["POSTGRES_PORT"]),
-                path=f'/{values["POSTGRES_DATABASE"]}',
+                path=f'{values["POSTGRES_DATABASE"]}',
             )
         )
 
@@ -55,9 +60,8 @@ class Settings(BaseSettings):
                 password=values["POSTGRES_PASSWORD"],
                 host=values["POSTGRES_HOST"],
                 port=int(values["POSTGRES_PORT"]),
-                path=f'/{values["POSTGRES_DATABASE"]}',
+                path=f'{values["POSTGRES_DATABASE"]}',
             )
         )
-
 
 settings = Settings()
